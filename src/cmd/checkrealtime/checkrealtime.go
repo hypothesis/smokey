@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -8,12 +9,14 @@ import (
 )
 
 var (
-	API_ROOT    = os.Getenv("CHECKREALTIME_API_ROOT")
-	API_TOKEN   = os.Getenv("CHECKREALTIME_API_TOKEN")
-	API_USER    = os.Getenv("CHECKREALTIME_API_USER")
-	WS_ENDPOINT = os.Getenv("CHECKREALTIME_WS_ENDPOINT")
-	WS_ORIGIN   = os.Getenv("CHECKREALTIME_WS_ORIGIN")
-	TIMEOUT     = 10 * time.Second
+	apiRoot     = flag.String("apiRoot", "https://hypothes.is/api", "API root for creating test annotation")
+	apiToken    = flag.String("apiToken", "", "API token for creating test annotation (env var: CHECKREALTIME_API_TOKEN")
+	apiUser     = flag.String("apiUser", "", "API user (e.g. 'acct:foo@example.com') for creating test annotation (env var: CHECKREALTIME_API_TOKEN)")
+	wsEndpoint  = flag.String("wsEndpoint", "wss://hypothes.is/ws", "WebSocket endpoint")
+	wsOrigin    = flag.String("wsOrigin", "https://hypothes.is", "Origin header to send to websocket")
+	warnLatency = flag.Duration("warnLatency", 500*time.Millisecond, "warn latency")
+	critLatency = flag.Duration("critLatency", 2*time.Second, "critical latency")
+	timeout     = flag.Duration("timeout", 10*time.Second, "critical latency")
 )
 
 func chk(err error, msg string) {
@@ -28,27 +31,51 @@ func chkAll(errs []error, msg string) {
 	}
 }
 
-func main() {
-	if API_TOKEN == "" {
-		log.Fatalln("no API token provided: please set CHECKREALTIME_API_TOKEN")
+func fetchFromEnv(val *string, envvar string) bool {
+	envVal := os.Getenv(envvar)
+	if envVal == "" {
+		return false
 	}
-	if API_USER == "" {
-		log.Fatalln("no API user provided: please set CHECKREALTIME_API_USER")
-	}
-	if API_ROOT == "" {
-		API_ROOT = "https://hypothes.is/api"
-	}
-	if WS_ENDPOINT == "" {
-		WS_ENDPOINT = "wss://hypothes.is/ws"
-	}
-	if WS_ORIGIN == "" {
-		WS_ORIGIN = "https://hypothes.is"
+	*val = envVal
+	return true
+}
+
+func nagiosCheckOutput(success bool, latency time.Duration) {
+	status := "OK: received test notification in %s"
+	rc := 0
+
+	if success {
+		if latency > *warnLatency {
+			status = "WARN: test notification took %s to arrive"
+			rc = 1
+		}
+		if latency > *critLatency {
+			status = "CRITICAL: test notification took %s to arrive"
+			rc = 2
+		}
+	} else {
+		status = "CRITICAL: timed out waiting for test notification (%s)"
+		rc = 2
 	}
 
-	ws, err := wsConnect(WS_ENDPOINT, WS_ORIGIN)
+	fmt.Printf(status+"\n", latency)
+	os.Exit(rc)
+}
+
+func main() {
+	flag.Parse()
+
+	if *apiToken == "" && !fetchFromEnv(apiToken, "CHECKREALTIME_API_TOKEN") {
+		log.Fatalln("error: no API token provided")
+	}
+	if *apiUser == "" && !fetchFromEnv(apiUser, "CHECKREALTIME_API_USER") {
+		log.Fatalln("error: no API user provided")
+	}
+
+	ws, err := wsConnect(*wsEndpoint, *wsOrigin)
 	chk(err, "couldn't connect websocket")
 
-	id, errs := createAnnotation(API_ROOT, API_USER, API_TOKEN)
+	id, errs := createAnnotation(*apiRoot, *apiUser, *apiToken)
 	chkAll(errs, "failed to create test annotation")
 
 	start := time.Now()
@@ -62,18 +89,27 @@ func main() {
 		done <- t
 	}()
 
+	success := false
+	var latency time.Duration
+
 	select {
 	case t := <-done:
-		log.Printf("received notification at %v (waited %v)\n", t, t.Sub(start))
-	case <-time.After(TIMEOUT):
-		log.Fatalf("timed out waiting for notification (waited %v)", TIMEOUT)
+		success = true
+		latency = t.Sub(start)
+		log.Printf("received notification at %v (waited %v)\n", t, latency)
+	case <-time.After(*timeout):
+		success = false
+		latency = *timeout
+		log.Fatalf("timed out waiting for notification (waited %v)", *timeout)
 	}
 
-	errs = deleteAnnotation(API_ROOT, API_USER, API_TOKEN, id)
+	errs = deleteAnnotation(*apiRoot, *apiUser, *apiToken, id)
 	chkAll(errs, fmt.Sprintf("failed to delete annotation (id=%v)", id))
 
 	log.Printf("deleted test annotation (id=%v)\n", id)
 
 	err = ws.Close()
 	chk(err, "couldn't close websocket")
+
+	nagiosCheckOutput(success, latency)
 }
