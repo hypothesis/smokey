@@ -1,4 +1,4 @@
-﻿import json, requests, traceback
+import json, requests, traceback
 
 try:
     from urllib.parse import urlencode
@@ -81,4 +81,5 @@ class TestQueryCorrectness:
         current_params['tags'] = tuple(['latin', 'vocabulary'])
         assert results_match_expected(params_name, current_params, 'tagged_latin_and_vocabulary', tagged_latin_and_vocabulary)
          
+
 
