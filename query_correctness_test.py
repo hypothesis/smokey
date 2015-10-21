@@ -1,4 +1,4 @@
-﻿import json, requests
+﻿import json, requests, traceback
 
 try:
     from urllib.parse import urlencode
@@ -11,7 +11,8 @@ user = 'hypothesistest'
 query_url_template = 'https://%s/api/search?{query}' % h_domain
 
 all = 6
-tagged_latin = 2
+tagged_latin = 3
+tagged_uppercase_latin = 3  # if we are case-insensitive
 tagged_latin_and_vocabulary = 1
 
 base_params = { 'uri': url }
@@ -56,6 +57,18 @@ class TestQueryCorrectness:
         current_params['tags'] = 'latin'
         assert results_match_expected(params_name, current_params, 'tagged_latin', tagged_latin)
 
+    def test_base_params_finds_tagged_uppercase_latin(self):
+        params_name = 'base_params'
+        current_params = params[params_name]
+        current_params['tags'] = 'LATIN'
+        assert results_match_expected(params_name, current_params, 'tagged_uppercase_latin', tagged_uppercase_latin)
+
+    def test_user_params_finds_tagged_uppercase_latin(self):
+        params_name = 'user_params'
+        current_params = params[params_name]
+        current_params['tags'] = 'LATIN'
+        assert results_match_expected(params_name, current_params, 'tagged_uppercase_latin', tagged_uppercase_latin)
+ 
     def test_base_params_finds_tagged_latin_and_vocabulary(self):
         params_name = 'base_params'
         current_params = params[params_name]
@@ -67,5 +80,5 @@ class TestQueryCorrectness:
         current_params = params[params_name]
         current_params['tags'] = tuple(['latin', 'vocabulary'])
         assert results_match_expected(params_name, current_params, 'tagged_latin_and_vocabulary', tagged_latin_and_vocabulary)
-
+         
 
