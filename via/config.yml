@@ -1,0 +1,20 @@
+# the URL of the Via service
+service_url: https://via.hypothes.is
+
+# list of browsers to test against
+browsers:
+ - sauce/chrome
+ - sauce/firefox
+ # Via is currently broken on Safari (GH #59)
+ # - sauce/safari
+ 
+ # additional browsers:
+ # - sauce/edge
+ # - sauce/ie
+ # - sauce/iphone
+ # - sauce/android
+
+# list of URLs to load with the
+# Via service for each browser
+urls:
+ - https://example.com
