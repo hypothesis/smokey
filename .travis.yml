@@ -5,3 +5,11 @@ services:
 
 script:
   - docker build -t hypothesis/smokey smokey/
+
+after_success:
+  # Tag with build number and deploy to docker hub if we're on master.
+  - >
+    test $TRAVIS_PULL_REQUEST = "false" &&
+    test $TRAVIS_BRANCH = "master" &&
+    docker tag hypothesis/smokey hypothesis/smokey:$TRAVIS_BUILD_NUMBER &&
+    docker push hypothesis/smokey
