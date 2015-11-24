@@ -1,0 +1,7 @@
+#!/bin/sh
+
+: ${API_ENDPOINT:="https://hypothes.is/api"}
+
+set -eu
+
+behave -D api_endpoint="$API_ENDPOINT" features/
