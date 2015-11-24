@@ -1,2 +1,10 @@
+# Go build artifacts
 /bin
 /pkg
+
+# Python build artifacts
+.deps
+.pyc
+
+# Editor files
+.swp
