@@ -14,19 +14,27 @@ this in a rather crude but functional manner. It:
 Currently, `checkrealtime` is installed and running as an Icinga check on
 [the monitoring server](https://mon.hypothes.is/).
 
-Developing
-----------
+Usage
+-----
 
-You should ensure you have a working Go toolchain before attempting to work on
-`checkrealtime`.
+Building `checkrealtime` requires:
 
-Vendor dependencies are managed by [GB][gb]. Ensure you have GB [installed and
-working](http://getgb.io/docs/install/). Once you do, you should be able to
-build `checkrealtime` by running the following from this directory:
+1. a working [Go](https://golang.org/pkg/log/) toolchain with [GB][gb]
+   [installed and working](http://getgb.io/docs/install/).
+1. [Docker](https://www.docker.com/).
+
+To build and run `checkrealtime`, simply run:
+
+    make
+
+The tool is built into a docker image in order to ensure isolation and to
+simplify deployment (the resulting docker image can be deployed via Docker Hub).
+
+You can also build `checkrealtime` locally, by running gb:
 
     gb build
 
-You should then be able to run `checkrealtime`:
+You can then run the tool:
 
     ./bin/checkrealtime -h
 

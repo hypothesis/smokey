@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Deploy built docker images from Travis to the Docker Hub.
+#
+# This script checks if we're building on the master branch in Travis. If so,
+# then it will tag and push the changed images to Docker Hub.
+#
+# Images are tagged with the Travis build number
+
+if [ "$TRAVIS" != "true" ]; then
+    echo >&2 "This script is intended to be run on Travis CI! Aborting."
+    exit 1
+fi
+
+set -eu
+
+if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
+    echo >&2 "Not deploying from a pull request. Exiting."
+    exit 0
+fi
+
+if [ "$TRAVIS_BRANCH" != "master" ]; then
+    echo >&2 "Not deploying from a branch other than master. Exiting."
+    exit 0
+fi
+
+# Return a zero status code if the directory changed in the passed commit range,
+# and non-zero if it did not.
+subtree_changed () {
+    local dir=$1
+    local range=$2
+    ! git diff --quiet "$range" -- "$dir"
+}
+
+# Tag an image with the specified tag and push it to the Docker Hub.
+push_image () {
+    local image=$1
+    local tag=$2
+    echo docker tag "$image" "$image":"$tag"
+    echo docker push "$image"
+}
+
+# The DOCKER_* environment variables are secrets we need to have configured for
+# the Travis project.
+echo docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+
+if subtree_changed checkrealtime/ "$TRAVIS_COMMIT_RANGE"; then
+    push_image hypothesis/checkrealtime "$TRAVIS_BUILD_NUMBER"
+fi
+if subtree_changed smokey/ "$TRAVIS_COMMIT_RANGE"; then
+    push_image hypothesis/smokey "$TRAVIS_BUILD_NUMBER"
+fi
