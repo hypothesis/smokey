@@ -1,16 +1,15 @@
+language: go
 sudo: required
 
 services:
   - docker
 
+install:
+  - go get github.com/constabulary/gb/...
+
 script:
-  - docker build -t hypothesis/smokey smokey/
+  - make -C checkrealtime build
+  - make -C smokey build
 
 after_success:
-  # Tag with build number and deploy to docker hub if we're on master.
-  - >
-    test "$TRAVIS_PULL_REQUEST" = "false" &&
-    test "$TRAVIS_BRANCH" = "master" &&
-    docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" &&
-    docker tag hypothesis/smokey hypothesis/smokey:"$TRAVIS_BUILD_NUMBER" &&
-    docker push hypothesis/smokey
+  - sh tools/deploy
