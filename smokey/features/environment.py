@@ -1,4 +1,5 @@
 import os
+import requests
 
 
 # Configuration default values
@@ -26,3 +27,12 @@ def before_all(context):
     # Load config defaults
     for k, v in CONFIG_DEFAULTS.items():
         context.config.userdata.setdefault(k, v)
+
+    # Set up an HTTP client session with some reasonable defaults (including
+    # retrying requests that fail).
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(max_retries=3)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    context.http = session

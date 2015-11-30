@@ -1,10 +1,10 @@
 from behave import *
 
-import requests
 
 def search(context, params={}):
     api_root = context.config.userdata['api_root']
-    context.last_response = requests.get('%s/search' % api_root, params=params)
+    context.last_response = context.http.get('%s/search' % api_root,
+                                             params=params)
 
 
 @when('I search with no query')
