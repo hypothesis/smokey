@@ -1,7 +1,15 @@
 #!/bin/sh
 
 : ${API_ENDPOINT:="https://hypothes.is/api"}
+: ${PROXY_URL:="https://via.hypothes.is"}
+: ${SAUCE_USERNAME:=""}
+: ${SAUCE_ACCESS_KEY=:""}
 
 set -eu
 
-behave -D api_endpoint="$API_ENDPOINT" features/
+behave \
+  -D api_endpoint="$API_ENDPOINT"\
+  -D proxy_url="$PROXY_URL"\
+  -D sauce_username="$SAUCE_USERNAME"\
+  -D sauce_access_key="$SAUCE_ACCESS_KEY"\
+  features/
