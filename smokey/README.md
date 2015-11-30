@@ -29,4 +29,4 @@ By default the tests will run against the production web service at
 `https://hypothes.is`. You can configure a different base URL using an
 environment variable:
 
-    docker run -e API_ENDPOINT='https://myserver/api' hypothesis/smokey
+    docker run -e API_ROOT='https://myserver/api' hypothesis/smokey

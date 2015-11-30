@@ -11,8 +11,7 @@ WORKDIR /var/lib/smokey
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application files
-COPY start ./
+# Copy the test files.
 COPY features ./features/
 
 # Change ownership of all the files and switch to the smokey user.
@@ -23,4 +22,4 @@ USER smokey
 ENV PYTHONIOENCODING utf_8
 
 # Default command: run the tests.
-CMD ["./start"]
+CMD ["/usr/bin/behave"]

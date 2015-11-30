@@ -99,8 +99,8 @@ def connect_browser(context):
 
 @when('I visit "{url}" with Via')
 def visit_url_with_proxy(context, url):
-    proxy_url = context.config.userdata['proxy_url']
-    proxied_url = '{}/{}'.format(proxy_url, url)
+    proxy_root = context.config.userdata['proxy_root']
+    proxied_url = '{}/{}'.format(proxy_root, url)
     for _, browser in context.browsers.iteritems():
         browser.driver.get(proxied_url)
 
