@@ -49,6 +49,12 @@ def before_scenario(context, scenario):
         scenario.skip("Sauce config not provided")
 
 
+def after_scenario(context, scenario):
+    # Shut down any webdriver instances that were started by the scenario.
+    if hasattr(context, 'browser'):
+        context.browser.close()
+
+
 def _check_sauce_config(context):
     if 'sauce_username' not in context.config.userdata:
         return False
