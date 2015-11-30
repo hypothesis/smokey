@@ -40,7 +40,7 @@ def verify_annotation_tag(context, tag):
 
 
 @then('I should get annotations authored by "{user}"')
-def verify_annotation_tag(context, user):
+def verify_annotation_author(context, user):
     response = context.last_response.json()
     assert len(response['rows']) > 0
     for annotation in response['rows']:
