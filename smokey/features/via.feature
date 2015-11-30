@@ -1,4 +1,5 @@
 Feature: Via proxy
+  @sauce
   Scenario: Visiting a URL through Via
     Given I am using a supported browser
       |browser|

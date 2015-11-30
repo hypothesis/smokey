@@ -1,6 +1,10 @@
+import logging
 import os
 import requests
 
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO)
 
 # Configuration default values
 CONFIG_DEFAULTS = {
@@ -36,3 +40,18 @@ def before_all(context):
     session.mount('https://', adapter)
 
     context.http = session
+
+
+def before_scenario(context, scenario):
+    # Don't run scenarios that require Sauce configuration if it hasn't been
+    # provided.
+    if 'sauce' in scenario.tags and not _check_sauce_config(context):
+        scenario.skip("Sauce config not provided")
+
+
+def _check_sauce_config(context):
+    if 'sauce_username' not in context.config.userdata:
+        return False
+    if 'sauce_access_key' not in context.config.userdata:
+        return False
+    return True
