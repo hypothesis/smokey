@@ -36,6 +36,7 @@ html_checklist = (
 'http://www.youtube.com/watch?v=JQiLaKdzD0E',
 'http://arstechnica.com/gaming/2015/04/valve-software-co-founder-gabe-newell-becomes-a-video-game-character/', # https://github.com/hypothesis/h/issues/2129
 'http://www.georgianjournal.ge/politics/30550-abandon-ship-is-the-national-movement-no-longer-united.html',
+'http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3245070/' # ask @memartone
 #'http://firstmonday.org/ojs/index.php/fm/article/view/2484/2199', # https://github.com/hypothesis/h/issues/2724
                                                                    # untestable now because of doc equiv problems
 			                                                       # ideally add to test once that's resolved
