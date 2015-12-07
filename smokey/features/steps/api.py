@@ -35,7 +35,8 @@ def verify_annotation_tag(context, tag):
     response = context.last_response.json()
     assert len(response['rows']) > 0
     for annotation in response['rows']:
-        matching_tags = filter(lambda t: tag in t, annotation['tags'])
+        matching_tags = [t for t in annotation['tags']
+                         if tag.lower() in t.lower()]
         assert len(matching_tags) > 0
 
 
