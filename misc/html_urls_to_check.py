@@ -38,6 +38,7 @@ html_checklist = (
 'http://www.georgianjournal.ge/politics/30550-abandon-ship-is-the-national-movement-no-longer-united.html',
 'http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3245070/' # ask @memartone
 'http://www.nature.com/neuro/journal/v7/n5/full/nn1229.html', # @memartone
+'http://www.nature.com/news/policy-nih-plans-to-enhance-reproducibility-1.14586#', # @memartone
 'http://www.nytimes.com/2015/06/04/opinion/zeynep-tufekci-mark-zuckerberg-let-me-pay-for-facebook.html', 
 'http://www.nytimes.com/2015/06/04/opinion/zeynep-tufekci-mark-zuckerberg-let-me-pay-for-facebook.html?_r=0',
 'http://www.nytimes.com/2015/06/04/opinion/zeynep-tufekci-mark-zuckerberg-let-me-pay-for-facebook.html?_r=1',
