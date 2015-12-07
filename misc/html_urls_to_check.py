@@ -38,6 +38,8 @@ html_checklist = (
 'http://www.georgianjournal.ge/politics/30550-abandon-ship-is-the-national-movement-no-longer-united.html',
 'http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3245070/' # ask @memartone
 'http://www.nature.com/neuro/journal/v7/n5/full/nn1229.html', # @memartone
+'http://www.nytimes.com/2015/06/04/opinion/zeynep-tufekci-mark-zuckerberg-let-me-pay-for-facebook.html', 
+'http://www.nytimes.com/2015/06/04/opinion/zeynep-tufekci-mark-zuckerberg-let-me-pay-for-facebook.html?_r=1',
 #'http://firstmonday.org/ojs/index.php/fm/article/view/2484/2199', # https://github.com/hypothesis/h/issues/2724
                                                                    # untestable now because of doc equiv problems
 			                                                       # ideally add to test once that's resolved
