@@ -1,6 +1,10 @@
 import logging
+import functools
 import os
 import requests
+
+from behave.model import ScenarioOutline
+
 
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
@@ -40,6 +44,43 @@ def before_all(context):
     session.mount('https://', adapter)
 
     context.http = session
+
+
+def autoretry_scenario(scenario_or_outline):
+    """
+    Monkey-patches Scenario.run() to auto-retry a scenario that fails.
+    This has been proposed upstream but rejected on reasonable grounds
+    - see https://github.com/behave/behave/pull/328
+    """
+    def run_scenario(original_run, *args, **kwargs):
+        max_attempts = 3
+        passed = False
+        for attempt in range(1, max_attempts+1):
+            if original_run(*args, **kwargs):
+                print('Auto-retrying scenario (attempt {})'.format(attempt))
+            else:
+                passed = True
+                break
+
+        if passed:
+            return False
+
+        print('Scenario failed after {} attempts'.format(max_attempts))
+        return True
+
+    if isinstance(scenario_or_outline, ScenarioOutline):
+        for scenario in scenario_or_outline.scenarios:
+            original_run = scenario.run
+            scenario.run = functools.partial(run_scenario, original_run)
+    else:
+        original_run = scenario.run
+        scenario_or_outline.run = functools.partial(run_scenario, original_run)
+
+
+def before_feature(context, feature):
+    for scenario in feature.scenarios:
+        if 'autoretry' in scenario.tags:
+            autoretry_scenario(scenario)
 
 
 def before_scenario(context, scenario):

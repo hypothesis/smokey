@@ -1,5 +1,5 @@
 Feature: Via proxy
-  @sauce
+  @sauce @autoretry
   Scenario Outline: Visiting a URL through Via
     Given I am using supported browser "<browser>"
     When I visit "http://example.com" with Via
