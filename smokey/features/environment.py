@@ -49,8 +49,10 @@ def before_all(context):
 def autoretry_scenario(scenario_or_outline):
     """
     Monkey-patches Scenario.run() to auto-retry a scenario that fails.
-    This has been proposed upstream but rejected on reasonable grounds
-    - see https://github.com/behave/behave/pull/328
+
+    This has been accepted upstream for Behave 1.2.6 as
+    behave.contrib.scenario_autoretry (see
+    https://github.com/behave/behave/commit/ca7259b7)
     """
     def run_scenario(original_run, *args, **kwargs):
         max_attempts = 3
