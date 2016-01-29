@@ -27,11 +27,9 @@ def wait_for_hypothesis_sidebar(context):
 def wait_for_annotations(context, count):
     count = int(count)
     driver = context.browser.driver
-    saw_highlight = EC.presence_of_element_located((By.CLASS_NAME,
-                                                    H_HIGHLIGHT_CLASS))
-    WebDriverWait(driver, 30).until(saw_highlight)
 
-    highlights = driver.find_elements_by_class_name(H_HIGHLIGHT_CLASS)
+    def found_highlights(driver):
+        highlights = driver.find_elements_by_class_name(H_HIGHLIGHT_CLASS)
+        return len(highlights) >= count
 
-    if len(highlights) < count:
-        raise Exception('Found only {} annotations'.format(len(highlights)))
+    WebDriverWait(driver, 15).until(found_highlights)

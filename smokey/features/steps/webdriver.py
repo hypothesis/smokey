@@ -29,6 +29,7 @@ class Browser(object):
 
     def __init__(self, browser):
         self.name = browser
+        self.driver = None
 
     def start(self, context):
         """
@@ -81,7 +82,8 @@ class Browser(object):
 
     def close(self):
         """Shut down the WebDriver instance."""
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
 
     def _start_sauce_browser(self, context):
         username = context.config.userdata['sauce_username']
