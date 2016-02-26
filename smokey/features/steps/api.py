@@ -1,10 +1,67 @@
-from behave import *
+from behave import given, then, when
 
 
 def search(context, params={}):
     api_root = context.config.userdata['api_root']
     context.last_response = context.http.get('%s/search' % api_root,
                                              params=params)
+
+
+def create_annotation(context, data=None):
+    try:
+        getattr(context, 'user')
+    except AttributeError:
+        raise RuntimeError("can't create annotations without active test user")
+
+    if data is None:
+        data = {}
+
+    data.update({
+        "smokey": True,
+        "permissions": {
+            "read": ["group:__world__"],
+            "delete": [context.user['userid']],
+        }
+    })
+
+    api_root = context.config.userdata['api_root']
+    url = '{root}/annotations'.format(root=api_root)
+    context.last_response = context.http.post(url, json=data)
+
+
+def delete_annotation(context, id):
+    try:
+        getattr(context, 'user')
+    except AttributeError:
+        raise RuntimeError("can't delete annotations without active test user")
+
+    api_root = context.config.userdata['api_root']
+    url = '{root}/annotations/{id}'.format(root=api_root, id=id)
+    context.last_response = context.http.delete(url)
+
+
+@given('I am acting as the test user "{user}"')
+def act_as_test_user(context, user):
+    if user not in context.test_users:
+        context.scenario.skip('API key for test user "{user}" not '
+                              'provided!'.format(user=user))
+        return
+
+    # Set the current user so that other step definitions can refer to it
+    context.user = context.test_users[user]
+
+    # Set the API token in use
+    context.http.headers.update({
+        'Authorization': 'Bearer {token}'.format(token=context.user['token'])
+    })
+
+
+@when('I create a test annotation')
+def create_test_annotation(context):
+    create_annotation(context)
+    ann = context.last_response.json()
+    context.last_test_annotation = ann
+    context.teardown.append(lambda: delete_annotation(context, ann['id']))
 
 
 @when('I search with no query')
