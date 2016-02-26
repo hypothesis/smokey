@@ -1,7 +1,8 @@
-FROM gliderlabs/alpine:3.2
+FROM gliderlabs/alpine:3.3
 
 # Update the base image and install runtime dependencies.
-RUN apk --update add ca-certificates make py-pip
+RUN apk add --no-cache ca-certificates python3 curl && \
+    curl -sSL https://bootstrap.pypa.io/get-pip.py | python3
 
 # Create the smokey user, group, home directory and package directory.
 RUN addgroup -S smokey && adduser -S -G smokey -h /var/lib/smokey smokey
