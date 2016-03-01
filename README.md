@@ -4,13 +4,6 @@ Hypothesis testing tools
 This repository contains tools used to test a running Hypothesis instance and
 and documentation for operators.
 
-`checkrealtime/`
-----------------
-
-A small program to check that "realtime annotation" (annotation updates streamed
-down a websocket) is working correctly.
-
-
 `smokey/`
 ---------
 
