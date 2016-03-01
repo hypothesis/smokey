@@ -5,10 +5,10 @@ import requests
 
 from behave.model import ScenarioOutline
 
-
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # Configuration default values
 CONFIG_DEFAULTS = {
@@ -55,10 +55,14 @@ def before_all(context):
         token_key = 'TEST_USER_{user}_KEY'.format(user=user.upper())
         userid_key = 'TEST_USER_{user}_USERID'.format(user=user.upper())
         if token_key in os.environ and userid_key in os.environ:
-            context.test_users[user] = {
-                'token': os.environ[token_key],
-                'userid': os.environ[userid_key],
-            }
+            token = os.environ[token_key]
+            userid = os.environ[userid_key]
+
+            if not userid.startswith('acct:') or '@' not in userid:
+                log.warn('{var} should contain a full userid of the form '
+                         'acct:<username>@<domain>'.format(var=userid_key))
+
+            context.test_users[user] = {'token': token, 'userid': userid}
 
     # Set up an HTTP client session with some reasonable defaults (including
     # retrying requests that fail).
