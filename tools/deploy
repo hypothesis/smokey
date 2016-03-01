@@ -24,23 +24,6 @@ if [ "$TRAVIS_BRANCH" != "master" ]; then
     exit 0
 fi
 
-# Return a zero status code if the directory changed in the passed commit range,
-# and non-zero if it did not.
-subtree_changed () {
-    local dir=$1
-    local range=$2
-    if git diff --quiet "$range" -- "$dir"; then
-        return 1
-    else
-        # Exit codes greater than 1 are actual errors rather than an indication
-        # of a non-null diff.
-        if [ "$?" -gt 1 ]; then
-            exit 1
-        fi
-        return 0
-    fi
-}
-
 # Tag an image with the specified tag and push it to the Docker Hub.
 push_image () {
     local image=$1
@@ -55,10 +38,4 @@ push_image () {
 # the Travis project.
 echo >&2 "Logging into Docker Hub..."
 docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-
-if subtree_changed checkrealtime/ "$TRAVIS_COMMIT_RANGE"; then
-    push_image hypothesis/checkrealtime "$TRAVIS_BUILD_NUMBER"
-fi
-if subtree_changed smokey/ "$TRAVIS_COMMIT_RANGE"; then
-    push_image hypothesis/smokey "$TRAVIS_BUILD_NUMBER"
-fi
+push_image hypothesis/smokey "$TRAVIS_BUILD_NUMBER"

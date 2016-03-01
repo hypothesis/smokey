@@ -1,15 +1,7 @@
-language: go
 sudo: required
-
 services:
   - docker
-
-install:
-  - go get github.com/constabulary/gb/...
-
 script:
-  - make -C checkrealtime build
   - make -C smokey build
-
 after_success:
   - sh tools/deploy
