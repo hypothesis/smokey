@@ -98,3 +98,4 @@ class Browser(object):
 def connect_browser(context, browser):
     context.browser = Browser(browser)
     context.browser.start(context)
+    context.teardown.append(context.browser.close)

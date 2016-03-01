@@ -5,15 +5,17 @@ import requests
 
 from behave.model import ScenarioOutline
 
-
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # Configuration default values
 CONFIG_DEFAULTS = {
     'api_root': 'https://hypothes.is/api',
     'proxy_root': 'https://via.hypothes.is',
+    'unsafe_disable_ssl_verification': False,
+    'websocket_endpoint': 'wss://hypothes.is/ws',
 }
 
 # Configuration configurable from the environment
@@ -22,7 +24,18 @@ CONFIG_ENV = [
     'proxy_root',
     'sauce_access_key',
     'sauce_username',
+    'websocket_endpoint',
 ]
+
+# A list of test users that scenarios can use
+TEST_USERS = [
+    'smokey'
+]
+
+
+class UnsafeHTTPAdapter(requests.adapters.HTTPAdapter):
+    def cert_verify(self, conn, url, verify, cert):
+        return
 
 
 def before_all(context):
@@ -36,10 +49,27 @@ def before_all(context):
     for k, v in CONFIG_DEFAULTS.items():
         context.config.userdata.setdefault(k, v)
 
+    # Load test user keys from environment
+    context.test_users = {}
+    for user in TEST_USERS:
+        token_key = 'TEST_USER_{user}_KEY'.format(user=user.upper())
+        userid_key = 'TEST_USER_{user}_USERID'.format(user=user.upper())
+        if token_key in os.environ and userid_key in os.environ:
+            token = os.environ[token_key]
+            userid = os.environ[userid_key]
+
+            if not userid.startswith('acct:') or '@' not in userid:
+                log.warn('{var} should contain a full userid of the form '
+                         'acct:<username>@<domain>'.format(var=userid_key))
+
+            context.test_users[user] = {'token': token, 'userid': userid}
+
     # Set up an HTTP client session with some reasonable defaults (including
     # retrying requests that fail).
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(max_retries=3)
+    if context.config.userdata['unsafe_disable_ssl_verification']:
+        adapter = UnsafeHTTPAdapter(max_retries=3)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
 
@@ -91,11 +121,13 @@ def before_scenario(context, scenario):
     if 'sauce' in scenario.tags and not _check_sauce_config(context):
         scenario.skip("Sauce config not provided")
 
+    # Allow scenarios to register teardown tasks
+    context.teardown = []
+
 
 def after_scenario(context, scenario):
-    # Shut down any webdriver instances that were started by the scenario.
-    if hasattr(context, 'browser'):
-        context.browser.close()
+    for teardown_task in context.teardown:
+        teardown_task()
 
 
 def _check_sauce_config(context):
