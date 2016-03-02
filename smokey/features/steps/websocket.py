@@ -95,7 +95,7 @@ def wait_for_notification(context):
         raise RuntimeError("you must create a test annotation first!")
 
     id = context.last_test_annotation['id']
-    wait_for(5.0, await_annotation, context.websocket, id)
+    wait_for(10.0, await_annotation, context.websocket, id)
 
 
 def _ssl_context(verify=True):
