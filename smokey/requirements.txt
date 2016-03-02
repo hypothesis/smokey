@@ -1,4 +1,5 @@
 behave
+certifi
 requests
 selenium
 websockets
