@@ -1,4 +1,5 @@
 import asyncio
+import certifi
 import logging
 import json
 import ssl
@@ -98,7 +99,7 @@ def wait_for_notification(context):
 
 
 def _ssl_context(verify=True):
-    ssl_context = ssl.create_default_context()
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
     if not verify:
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
