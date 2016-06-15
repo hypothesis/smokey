@@ -1,90 +1,113 @@
 import asyncio
-import certifi
-import logging
 import json
+import logging
+import multiprocessing
+import queue
 import ssl
+import time
 import uuid
 
-from behave import *
+import certifi
 import websockets
+from behave import given, then
 
 log = logging.getLogger(__name__)
 
 
-def wait_for(timeout, func, *args, **kwargs):
-    """Block waiting for a a coroutine call to complete, with a timeout."""
+def tail_websocket(endpoint, queue, close, verify=True):
     loop = asyncio.get_event_loop()
-    task = asyncio.ensure_future(func(*args, **kwargs))
-    try:
-        loop.run_until_complete(asyncio.wait_for(task, timeout=timeout))
-    except asyncio.TimeoutError as e:
-        task.cancel()
-        raise
+    coro = enqueue_websocket_messages(endpoint, queue, close, verify)
+    loop.run_until_complete(coro)
 
 
-async def connect(context):
-    """Establish a websocket connection and send a client_id message."""
-    endpoint = context.config.userdata['websocket_endpoint']
-    verify = True
-    if context.config.userdata['unsafe_disable_ssl_verification']:
-        verify = False
-    ssl_context = _ssl_context(verify=verify)
-    context.websocket = await websockets.connect(endpoint, ssl=ssl_context)
-    context.teardown.append(lambda: wait_for(10.0, context.websocket.close))
+async def enqueue_websocket_messages(endpoint, queue, close, verify=True):
+    websocket = await connect(endpoint, verify)
+    pending = {websocket.recv()}
 
-
-async def send(websocket, message):
-    """JSON-encode and send a message over the websocket."""
-    await websocket.send(json.dumps(message))
-
-
-async def await_annotation(websocket, id):
-    """Wait to see a notification about annotation with the given `id`"""
     while True:
-        msg = await websocket.recv()
-        try:
-            data = json.loads(msg)
-        except ValueError:
-            log.warn('received non-JSON message: {!r}'.format(msg))
-            continue
+        done, pending = await asyncio.wait(pending, timeout=0.1)
 
-        if data.get('type') != 'annotation-notification':
-            continue
+        if done:
+            for msg in done:
+                queue.put_nowait(msg.result())
+            pending.add(websocket.recv())
 
-        if data.get('options') != {'action': 'create'}:
-            continue
+        if close.is_set():
+            break
 
-        if 'payload' not in data:
-            log.warn('saw annotation-notification lacking payload: {!r}'.format(msg))
-            continue
-
-        if not isinstance(data['payload'], list):
-            log.warn('saw annotation-notification with bad payload format: {!r}'.format(msg))
-            continue
-
-        for annotation in data['payload']:
-            if annotation.get('id') == id:
-                return
+    for msg in pending:
+        msg.cancel()
+    await websocket.close()
 
 
-@given('I am connected to the websocket')
-def connect_websocket(context):
-    wait_for(10.0, connect, context)
-    wait_for(2.0, send, context.websocket, {
+async def connect(endpoint, verify=True):
+    """Establish a websocket connection and send a client_id message."""
+    ssl_context = _ssl_context(verify=verify)
+    websocket = await websockets.connect(endpoint, ssl=ssl_context)
+    await websocket.send(json.dumps({
         'messageType': 'client_id',
         'value': str(uuid.uuid4()),
-    })
-
-
-@given('I request to be notified of all annotation events')
-def request_notification_all(context):
-    wait_for(2.0, send, context.websocket, {
+    }))
+    await websocket.send(json.dumps({
         'filter': {
             'match_policy': 'include_all',
             'clauses': [],
             'actions': {'create': True, 'update': True, 'delete': True},
         }
-    })
+    }))
+    return websocket
+
+
+def message_matches(msg, id):
+    """Check if a websocket message is for the given annotation `id`."""
+    try:
+        data = json.loads(msg)
+    except ValueError:
+        log.warn('received non-JSON message: {!r}'.format(msg))
+        return False
+
+    if data.get('type') != 'annotation-notification':
+        return False
+
+    if data.get('options') != {'action': 'create'}:
+        return False
+
+    if 'payload' not in data:
+        log.warn('saw annotation-notification lacking payload: {!r}'.format(msg))
+        return False
+
+    if not isinstance(data['payload'], list):
+        log.warn('saw annotation-notification with bad payload format: {!r}'.format(msg))
+        return False
+
+    for annotation in data['payload']:
+        if annotation.get('id') == id:
+            return True
+    return False
+
+
+@given('I am listening for notifications on the websocket')
+def listen_for_notifications(context):
+    endpoint = context.config.userdata['websocket_endpoint']
+    verify = not context.config.userdata['unsafe_disable_ssl_verification']
+
+    messages = multiprocessing.Queue(maxsize=1000)
+    close = multiprocessing.Event()
+    websocket = multiprocessing.Process(target=tail_websocket,
+                                        args=(endpoint, messages, close),
+                                        kwargs={'verify': verify})
+    websocket.start()
+
+    context.websocket = websocket
+    context.websocket_messages = messages
+
+    # When we teardown the test context, we set the "close" event, which will
+    # trigger clean websocket shutdown, and then wait for the process to
+    # complete.
+    def cleanup():
+        close.set()
+        websocket.join()
+    context.teardown.append(cleanup)
 
 
 @then('I should receive notification of my test annotation on the websocket')
@@ -95,7 +118,19 @@ def wait_for_notification(context):
         raise RuntimeError("you must create a test annotation first!")
 
     id = context.last_test_annotation['id']
-    wait_for(10.0, await_annotation, context.websocket, id)
+    timeout = time.time() + 10
+
+    while True:
+        try:
+            msg = context.websocket_messages.get(timeout=0.1)
+        except queue.Empty:
+            if time.time() > timeout:
+                break
+        else:
+            if message_matches(msg, id):
+                return
+
+    raise RuntimeError("timed out waiting for notification")
 
 
 def _ssl_context(verify=True):
