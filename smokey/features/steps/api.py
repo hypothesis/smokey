@@ -62,6 +62,8 @@ def create_test_annotation(context):
     create_annotation(context)
     ann = context.last_response.json()
     context.last_test_annotation = ann
+    if 'id' not in ann:
+        raise RuntimeError("could not create annotation: {}".format(ann))
     context.teardown.append(lambda: delete_annotation(context, ann['id']))
 
 
