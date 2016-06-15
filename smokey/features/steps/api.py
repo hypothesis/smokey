@@ -18,6 +18,7 @@ def create_annotation(context, data=None):
 
     data.update({
         "smokey": True,
+        "uri": "http://example.com",
         "permissions": {
             "read": ["group:__world__"],
             "delete": [context.user['userid']],
