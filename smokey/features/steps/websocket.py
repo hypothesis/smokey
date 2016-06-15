@@ -110,15 +110,15 @@ def listen_for_notifications(context):
     context.teardown.append(cleanup)
 
 
-@then('I should receive notification of my test annotation on the websocket')
-def wait_for_notification(context):
+@then('I should receive a websocket notification within {delay:d}s')
+def wait_for_notification(context, delay):
     try:
         getattr(context, 'last_test_annotation')
     except AttributeError:
         raise RuntimeError("you must create a test annotation first!")
 
     id = context.last_test_annotation['id']
-    timeout = time.time() + 10
+    timeout = time.time() + delay
 
     while True:
         try:
