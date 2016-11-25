@@ -14,15 +14,18 @@ from behave import given, then
 log = logging.getLogger(__name__)
 
 
-def tail_websocket(endpoint, queue, close, verify=True):
+def tail_websocket(endpoint, queue, ready, close, verify=True):
     loop = asyncio.get_event_loop()
-    coro = enqueue_websocket_messages(endpoint, queue, close, verify)
+    coro = enqueue_websocket_messages(endpoint, queue, ready, close, verify)
     loop.run_until_complete(coro)
 
 
-async def enqueue_websocket_messages(endpoint, queue, close, verify=True):
+async def enqueue_websocket_messages(endpoint, queue, ready, close, verify=True):
     websocket = await connect(endpoint, verify)
     pending = {websocket.recv()}
+
+    # signal to the controlling process that we're ready
+    ready.set()
 
     while True:
         done, pending = await asyncio.wait(pending, timeout=0.1)
@@ -92,11 +95,15 @@ def listen_for_notifications(context):
     verify = not context.config.userdata['unsafe_disable_ssl_verification']
 
     messages = multiprocessing.Queue(maxsize=1000)
-    close = multiprocessing.Event()
+    close = multiprocessing.Event()  # signal shutdown to the remote process
+    ready = multiprocessing.Event()  # remote process signals readiness to us
     websocket = multiprocessing.Process(target=tail_websocket,
-                                        args=(endpoint, messages, close),
+                                        args=(endpoint, messages, ready, close),
                                         kwargs={'verify': verify})
     websocket.start()
+
+    if not ready.wait(5.0):
+        raise RuntimeError('failed to connect to websocket in 5s')
 
     context.websocket = websocket
     context.websocket_messages = messages
