@@ -14,14 +14,24 @@ from behave import given, then
 log = logging.getLogger(__name__)
 
 
-def tail_websocket(endpoint, queue, ready, close, verify=True):
+def tail_websocket(endpoint, queue, ready, close, extra_headers=None, verify=True):
     loop = asyncio.get_event_loop()
-    coro = enqueue_websocket_messages(endpoint, queue, ready, close, verify)
+    coro = enqueue_websocket_messages(endpoint,
+                                      queue,
+                                      ready,
+                                      close,
+                                      extra_headers,
+                                      verify)
     loop.run_until_complete(coro)
 
 
-async def enqueue_websocket_messages(endpoint, queue, ready, close, verify=True):
-    websocket = await connect(endpoint, verify)
+async def enqueue_websocket_messages(endpoint,
+                                     queue,
+                                     ready,
+                                     close,
+                                     extra_headers=None,
+                                     verify=True):
+    websocket = await connect(endpoint, extra_headers, verify)
     pending = {websocket.recv()}
 
     # signal to the controlling process that we're ready
@@ -43,10 +53,12 @@ async def enqueue_websocket_messages(endpoint, queue, ready, close, verify=True)
     await websocket.close()
 
 
-async def connect(endpoint, verify=True):
+async def connect(endpoint, extra_headers=None, verify=True):
     """Establish a websocket connection and send a client_id message."""
     ssl_context = _ssl_context(verify=verify)
-    websocket = await websockets.connect(endpoint, ssl=ssl_context)
+    websocket = await websockets.connect(endpoint,
+                                         extra_headers=extra_headers,
+                                         ssl=ssl_context)
     await websocket.send(json.dumps({
         'messageType': 'client_id',
         'value': str(uuid.uuid4()),
@@ -94,12 +106,18 @@ def listen_for_notifications(context):
     endpoint = context.config.userdata['websocket_endpoint']
     verify = not context.config.userdata['unsafe_disable_ssl_verification']
 
+    # Use the same HTTP headers as requests -- this allows us to take
+    # advantage of any Authorization headers set by the "I am acting as the
+    # test user FOO" step
+    extra_headers = context.http.headers
+
     messages = multiprocessing.Queue(maxsize=1000)
     close = multiprocessing.Event()  # signal shutdown to the remote process
     ready = multiprocessing.Event()  # remote process signals readiness to us
     websocket = multiprocessing.Process(target=tail_websocket,
                                         args=(endpoint, messages, ready, close),
-                                        kwargs={'verify': verify})
+                                        kwargs={'extra_headers': extra_headers,
+                                                'verify': verify})
     websocket.start()
 
     if not ready.wait(5.0):
