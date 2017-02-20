@@ -38,15 +38,16 @@ async def enqueue_websocket_messages(endpoint,
     ready.set()
 
     while True:
+        if close.is_set():
+            queue.close()
+            break
+
         done, pending = await asyncio.wait(pending, timeout=0.1)
 
         if done:
             for msg in done:
                 queue.put_nowait(msg.result())
             pending.add(websocket.recv())
-
-        if close.is_set():
-            break
 
     for msg in pending:
         msg.cancel()
@@ -127,10 +128,24 @@ def listen_for_notifications(context):
     context.websocket_messages = messages
 
     # When we teardown the test context, we set the "close" event, which will
-    # trigger clean websocket shutdown, and then wait for the process to
-    # complete.
+    # trigger clean websocket shutdown, drain the queue, and then wait for the
+    # process to complete.
+    #
+    # We have to drain the messages queue because if the underlying pipe
+    # buffer is full (because, for example, we've received a lot of annotation
+    # notifications after the one we were looking for) then the queue writer
+    # process will block, and `websocket.join()` will deadlock. See the Python
+    # docs for details:
+    #
+    #     https://docs.python.org/3/library/multiprocessing.html#pipes-and-queues
+    #
     def cleanup():
         close.set()
+        while True:
+            try:
+                messages.get_nowait()
+            except queue.Empty:
+                break
         websocket.join()
     context.teardown.append(cleanup)
 
