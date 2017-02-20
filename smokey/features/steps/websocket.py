@@ -38,15 +38,16 @@ async def enqueue_websocket_messages(endpoint,
     ready.set()
 
     while True:
+        if close.is_set():
+            queue.close()
+            break
+
         done, pending = await asyncio.wait(pending, timeout=0.1)
 
         if done:
             for msg in done:
                 queue.put_nowait(msg.result())
             pending.add(websocket.recv())
-
-        if close.is_set():
-            break
 
     for msg in pending:
         msg.cancel()
