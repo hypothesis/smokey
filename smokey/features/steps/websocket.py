@@ -1,8 +1,6 @@
 import asyncio
 import json
 import logging
-import multiprocessing
-import queue
 import ssl
 import time
 import uuid
@@ -14,52 +12,13 @@ from behave import given, then
 log = logging.getLogger(__name__)
 
 
-def tail_websocket(endpoint, queue, ready, close, extra_headers=None, verify=True):
-    loop = asyncio.get_event_loop()
-    coro = enqueue_websocket_messages(endpoint,
-                                      queue,
-                                      ready,
-                                      close,
-                                      extra_headers,
-                                      verify)
-    loop.run_until_complete(coro)
-
-
-async def enqueue_websocket_messages(endpoint,
-                                     queue,
-                                     ready,
-                                     close,
-                                     extra_headers=None,
-                                     verify=True):
-    websocket = await connect(endpoint, extra_headers, verify)
-    pending = {websocket.recv()}
-
-    # signal to the controlling process that we're ready
-    ready.set()
-
-    while True:
-        if close.is_set():
-            queue.close()
-            break
-
-        done, pending = await asyncio.wait(pending, timeout=0.1)
-
-        if done:
-            for msg in done:
-                queue.put_nowait(msg.result())
-            pending.add(websocket.recv())
-
-    for msg in pending:
-        msg.cancel()
-    await websocket.close()
-
-
-async def connect(endpoint, extra_headers=None, verify=True):
+async def websocket_connect(endpoint, timeout=10, extra_headers=None, verify=True):
     """Establish a websocket connection and send a client_id message."""
-    ssl_context = _ssl_context(verify=verify)
-    websocket = await websockets.connect(endpoint,
-                                         extra_headers=extra_headers,
-                                         ssl=ssl_context)
+    kwargs = {'extra_headers': extra_headers}
+    if endpoint.startswith('wss://'):
+        kwargs['ssl'] = _ssl_context(verify=verify)
+    connect_coro = websockets.connect(endpoint, **kwargs)
+    websocket = await asyncio.wait_for(connect_coro, timeout)
     await websocket.send(json.dumps({
         'messageType': 'client_id',
         'value': str(uuid.uuid4()),
@@ -72,6 +31,14 @@ async def connect(endpoint, extra_headers=None, verify=True):
         }
     }))
     return websocket
+
+
+async def websocket_close(websocket, timeout=10):
+    return await asyncio.wait_for(websocket.close(), timeout)
+
+
+async def websocket_await_message(websocket, timeout=10):
+    return await asyncio.wait_for(websocket.recv(), timeout)
 
 
 def message_matches(msg, id):
@@ -110,43 +77,23 @@ def listen_for_notifications(context):
     # Use the same HTTP headers as requests -- this allows us to take
     # advantage of any Authorization headers set by the "I am acting as the
     # test user FOO" step
-    extra_headers = context.http.headers
+    extra_headers = {}
+    if 'Authorization' in context.http.headers:
+        extra_headers['Authorization'] = context.http.headers['Authorization']
 
-    messages = multiprocessing.Queue(maxsize=1000)
-    close = multiprocessing.Event()  # signal shutdown to the remote process
-    ready = multiprocessing.Event()  # remote process signals readiness to us
-    websocket = multiprocessing.Process(target=tail_websocket,
-                                        args=(endpoint, messages, ready, close),
-                                        kwargs={'extra_headers': extra_headers,
-                                                'verify': verify})
-    websocket.start()
+    loop = asyncio.get_event_loop()
+    connect_coro = websocket_connect(endpoint,
+                                     extra_headers=extra_headers,
+                                     verify=verify)
+    context.websocket = loop.run_until_complete(connect_coro)
 
-    if not ready.wait(5.0):
-        raise RuntimeError('failed to connect to websocket in 5s')
-
-    context.websocket = websocket
-    context.websocket_messages = messages
-
-    # When we teardown the test context, we set the "close" event, which will
-    # trigger clean websocket shutdown, drain the queue, and then wait for the
-    # process to complete.
-    #
-    # We have to drain the messages queue because if the underlying pipe
-    # buffer is full (because, for example, we've received a lot of annotation
-    # notifications after the one we were looking for) then the queue writer
-    # process will block, and `websocket.join()` will deadlock. See the Python
-    # docs for details:
-    #
-    #     https://docs.python.org/3/library/multiprocessing.html#pipes-and-queues
-    #
+    # Perform a best effort clean up of the websocket at the end of the
+    # scenario
     def cleanup():
-        close.set()
-        while True:
-            try:
-                messages.get_nowait()
-            except queue.Empty:
-                break
-        websocket.join()
+        try:
+            loop.run_until_complete(websocket_close(context.websocket))
+        except:
+            pass
     context.teardown.append(cleanup)
 
 
@@ -157,15 +104,19 @@ def wait_for_notification(context, delay):
     except AttributeError:
         raise RuntimeError("you must create a test annotation first!")
 
+    loop = asyncio.get_event_loop()
     id = context.last_test_annotation['id']
-    timeout = time.time() + delay
+    deadline = time.monotonic() + delay
 
     while True:
+        timeout = deadline - time.monotonic()
+        if timeout <= 0:  # past the deadline
+            break
         try:
-            msg = context.websocket_messages.get(timeout=0.1)
-        except queue.Empty:
-            if time.time() > timeout:
-                break
+            msg_coro = websocket_await_message(context.websocket, timeout)
+            msg = loop.run_until_complete(msg_coro)
+        except asyncio.TimeoutError:
+            pass
         else:
             if message_matches(msg, id):
                 return
