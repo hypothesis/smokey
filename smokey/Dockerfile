@@ -27,5 +27,8 @@ USER smokey
 # Set the Python IO encoding to UTF-8.
 ENV PYTHONIOENCODING utf_8
 
-# Default command: run the tests.
-CMD ["/usr/bin/behave"]
+# Run tests with a timeout.
+#
+# Note use of 'shell' rather than 'exec' syntax for CMD, otherwise the timeout
+# is not respected.
+CMD timeout -t 240 behave
