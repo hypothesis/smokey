@@ -10,6 +10,11 @@ WORKDIR /var/lib/smokey
 
 # Install python dependencies.
 COPY requirements.txt ./
+
+# Upgrade setuptools to work around an issue during installation of the 'six'
+# indirect dependency. See https://github.com/pypa/setuptools/issues/951
+RUN pip install --no-cache-dir -U setuptools
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the test files.
@@ -22,5 +27,8 @@ USER smokey
 # Set the Python IO encoding to UTF-8.
 ENV PYTHONIOENCODING utf_8
 
-# Default command: run the tests.
-CMD ["/usr/bin/behave"]
+# Run tests with a timeout.
+#
+# Note use of 'shell' rather than 'exec' syntax for CMD, otherwise the timeout
+# is not respected.
+CMD timeout -t 240 behave
