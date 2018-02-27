@@ -10,6 +10,11 @@ WORKDIR /var/lib/smokey
 
 # Install python dependencies.
 COPY requirements.txt ./
+
+# Upgrade setuptools to work around an issue during installation of the 'six'
+# indirect dependency. See https://github.com/pypa/setuptools/issues/951
+RUN pip install --no-cache-dir -U setuptools
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the test files.
