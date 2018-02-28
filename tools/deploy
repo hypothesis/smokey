@@ -37,5 +37,5 @@ push_image () {
 # The DOCKER_* environment variables are secrets we need to have configured for
 # the Travis project.
 echo >&2 "Logging into Docker Hub..."
-docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
 push_image hypothesis/smokey "$TRAVIS_BUILD_NUMBER"
